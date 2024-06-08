@@ -16,14 +16,12 @@ type item struct {
 	expiration int64
 }
 
-// NewSimpleCache initializes a new SimpleCache with a default expiration time of 1 hour.
-// Optionally, you can set a custom expiration time by passing a duration parameter.
-func NewSimpleCache() *SimpleCache {
-	items := make(map[string]item)
+func NewSimpleCache(expiration time.Duration) *SimpleCache {
 	c := &SimpleCache{
-		items:      items,
-		expiration: 1 * time.Hour, // Set default expiration time.
+		expiration: expiration,
+		items:      make(map[string]item),
 	}
+	go c.Cleaner(expiration)
 	return c
 }
 
@@ -69,4 +67,25 @@ func (c *SimpleCache) Flush() {
 	c.rw.Lock()
 	c.items = map[string]item{}
 	c.rw.Unlock()
+}
+
+func (c *SimpleCache) DeleteExpired() {
+	now := time.Now().UnixNano()
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	for k, v := range c.items {
+		if now > v.expiration {
+			delete(c.items, k)
+		}
+	}
+}
+
+func (c *SimpleCache) Cleaner(expiration time.Duration) {
+	ticker := time.NewTicker(expiration)
+	for {
+		select {
+		case <-ticker.C:
+			c.DeleteExpired()
+		}
+	}
 }
