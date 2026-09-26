@@ -44,7 +44,6 @@ func (c *SimpleCache) Get(key string) (interface{}, bool) {
 	}
 	c.rw.RUnlock()
 	if item.expired() {
-		c.Delete(key)
 		return nil, false
 	}
 	return item.object, true
